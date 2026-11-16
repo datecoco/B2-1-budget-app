@@ -65,6 +65,8 @@ def create_parser() -> argparse.ArgumentParser:
                 command_parser.add_argument("--keyword", help="메모에 들어간 글자")
                 command_parser.add_argument("--from", dest="date_from", help="시작 날짜 (YYYY-MM-DD)")
                 command_parser.add_argument("--to", dest="date_to", help="끝 날짜 (YYYY-MM-DD)")
+                command_parser.add_argument("--tag", help="찾을 태그")
+
 
             # update는 고칠 거래의 id를 받는다.
             if command == "update":
@@ -186,9 +188,11 @@ def main() -> int:
                 continue
             if args.date_to and t.date > args.date_to:
                 continue
-                                
-            print(f"{t.id}  {t.date}  {t.type}  {t.amount:,}원  {t.category}  {t.memo}")
+            if args.tag and args.tag not in t.tags:
+                continue
 
+
+            print(f"{t.id}  {t.date}  {t.type}  {t.amount:,}원  {t.category}  {t.memo}  {' '.join('#' + tag for tag in t.tags)}")
         return 0
 
         # py -m budget_app add를 처리한다. 필요한 값을 하나씩 물어본다.
@@ -200,6 +204,9 @@ def main() -> int:
         amount = int(input("금액: ").strip())
         category = input("카테고리: ").strip()
         memo = input("메모 (없으면 엔터): ").strip()
+        tags_text = input("태그 (쉼표로 구분, 없으면 엔터): ").strip()
+        tags = [tag.strip() for tag in tags_text.split(",") if tag.strip()]
+
 
         transaction = Transaction(
             id=make_id(repository, date),
@@ -208,7 +215,11 @@ def main() -> int:
             amount=amount,
             category=category,
             memo=memo,
+            tags=tags,
         )
+
+
+
         repository.add(transaction)
         print(f"저장 완료! (id: {transaction.id})")
         return 0
@@ -275,7 +286,7 @@ def main() -> int:
             return 0
 
         for t in transactions[: args.limit]:
-            print(f"{t.id}  {t.date}  {t.type}  {t.amount:,}원  {t.category}  {t.memo}")
+            print(f"{t.id}  {t.date}  {t.type}  {t.amount:,}원  {t.category}  {t.memo}  {' '.join('#' + tag for tag in t.tags)}")
         return 0
 
 
