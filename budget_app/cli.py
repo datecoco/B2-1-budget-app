@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import csv
 
-
+from budget_app.models import Transaction
 from budget_app.repositories import (
     BudgetRepository,
     CategoryRepository,
     TransactionRepository,
 )
+
 
 # 프로그램이 제공할 명령어와 짧은 설명이다.
 COMMAND_DESCRIPTIONS = {
@@ -80,6 +82,17 @@ def create_parser() -> argparse.ArgumentParser:
                 command_parser.add_argument("--month", required=True, help="예산 달 (YYYY-MM)")
                 command_parser.add_argument("--amount", type=int, help="저장할 예산 금액")
 
+
+            # import는 가져올 CSV 파일 경로를 받는다.
+            if command == "import":
+                command_parser.add_argument("file", help="가져올 CSV 파일")
+
+            # export는 저장할 CSV 파일 경로와 선택 조건을 받는다.
+            if command == "export":
+                command_parser.add_argument("file", help="저장할 CSV 파일")
+                command_parser.add_argument("--month", help="이 달만 내보내기 (YYYY-MM)")
+
+
             # list는 몇 건을 보여 줄지 정하는 --limit 옵션을 받는다.
             if command == "list":
                 command_parser.add_argument(
@@ -120,6 +133,10 @@ def create_parser() -> argparse.ArgumentParser:
     category_remove_parser.add_argument("name", help="삭제할 카테고리 이름")
 
     return parser
+
+
+# CSV 첫 줄(헤더)에 들어갈 칸 이름과 순서다.
+CSV_HEADER = ["id", "date", "type", "amount", "category", "memo"]
 
 
 def make_id(repository: TransactionRepository, date: str) -> str:
@@ -344,6 +361,62 @@ def main() -> int:
             print(f"⚠️ 예산을 {spent - budget:,}원 초과했습니다!")
 
         return 0
+
+
+    # py -m budget_app export 파일.csv [--month YYYY-MM]을 처리한다.
+    if args.command == "export":
+        count = 0
+        # newline=""은 CSV 줄바꿈이 두 번 들어가지 않게 막는다.
+        with open(args.file, "w", encoding="utf-8", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow(CSV_HEADER)
+
+            for t in TransactionRepository(args.data_dir).iter_transactions():
+                if args.month and not t.date.startswith(args.month):
+                    continue
+                writer.writerow([t.id, t.date, t.type, t.amount, t.category, t.memo])
+                count += 1
+
+        print(f"{count}건을 {args.file}로 내보냈습니다.")
+        return 0
+
+    # py -m budget_app import 파일.csv를 처리한다. 잘못된 줄은 건너뛴다.
+    if args.command == "import":
+        repository = TransactionRepository(args.data_dir)
+        success = 0
+        failures = []
+
+        with open(args.file, "r", encoding="utf-8", newline="") as file:
+            reader = csv.DictReader(file)
+
+            # 헤더가 약속한 형식과 다르면 아예 시작하지 않는다.
+            if reader.fieldnames != CSV_HEADER:
+                print(f"CSV 헤더가 다릅니다. 첫 줄은 {','.join(CSV_HEADER)} 이어야 합니다.")
+                return 1
+
+            # 2부터 세는 이유: 1번 줄은 헤더라서.
+            for line_number, row in enumerate(reader, start=2):
+                try:
+                    transaction = Transaction(
+                        id=make_id(repository, row["date"]),
+                        type=row["type"],
+                        date=row["date"],
+                        amount=int(row["amount"]),
+                        category=row["category"],
+                        memo=row["memo"],
+                    )
+                except ValueError as error:
+                    failures.append(f"{line_number}번 줄: {error}")
+                    continue
+
+                repository.add(transaction)
+                success += 1
+
+        print(f"{success}건을 가져왔습니다.")
+        for failure in failures:
+            print(f"  건너뜀 - {failure}")
+        return 0
+
 
     # 아직 구현하지 않은 명령은 안내 메시지를 보여 준다.
     print(f"[준비 중] '{args.command}' 기능은 다음 단계에서 구현합니다.")
