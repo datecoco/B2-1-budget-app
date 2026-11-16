@@ -5,9 +5,11 @@ from __future__ import annotations
 import argparse
 
 
-from budget_app.models import Transaction
-from budget_app.repositories import CategoryRepository, TransactionRepository
-
+from budget_app.repositories import (
+    BudgetRepository,
+    CategoryRepository,
+    TransactionRepository,
+)
 
 # 프로그램이 제공할 명령어와 짧은 설명이다.
 COMMAND_DESCRIPTIONS = {
@@ -73,6 +75,10 @@ def create_parser() -> argparse.ArgumentParser:
                 command_parser.add_argument("--month", required=True, help="요약할 달 (YYYY-MM)")
                 command_parser.add_argument("--top", type=int, default=3, help="지출 TOP N (기본값: 3)")
 
+            # budget은 달을 받고, --amount를 주면 예산을 저장한다.
+            if command == "budget":
+                command_parser.add_argument("--month", required=True, help="예산 달 (YYYY-MM)")
+                command_parser.add_argument("--amount", type=int, help="저장할 예산 금액")
 
             # list는 몇 건을 보여 줄지 정하는 --limit 옵션을 받는다.
             if command == "list":
@@ -303,6 +309,39 @@ def main() -> int:
         print(f"지출 TOP {args.top}:")
         for rank, (category, amount) in enumerate(ranking[: args.top], start=1):
             print(f"  {rank}. {category} {amount:,}원")
+
+        return 0
+
+
+    # py -m budget_app budget --month YYYY-MM [--amount 금액]을 처리한다.
+    if args.command == "budget":
+        repository = BudgetRepository(args.data_dir)
+
+        # --amount를 주면 예산을 저장한다.
+        if args.amount is not None:
+            repository.set(args.month, args.amount)
+            print(f"{args.month} 예산을 {args.amount:,}원으로 저장했습니다.")
+            return 0
+
+        # --amount가 없으면 예산과 사용률을 보여 준다.
+        budget = repository.load().get(args.month)
+        if budget is None:
+            print(f"{args.month} 예산이 없습니다. --amount로 먼저 저장하세요.")
+            return 1
+
+        spent = 0
+        for t in TransactionRepository(args.data_dir).iter_transactions():
+            if t.date.startswith(args.month) and t.type == "expense":
+                spent += t.amount
+
+        rate = spent / budget * 100
+        print(f"[{args.month} 예산]")
+        print(f"예산: {budget:,}원")
+        print(f"지출: {spent:,}원")
+        print(f"사용률: {rate:.1f}%")
+
+        if spent > budget:
+            print(f"⚠️ 예산을 {spent - budget:,}원 초과했습니다!")
 
         return 0
 

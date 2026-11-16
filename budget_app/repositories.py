@@ -127,3 +127,35 @@ class CategoryRepository:
                     file.write(json.dumps({"name": name}, ensure_ascii=False) + "\n")
 
         return True
+
+
+class BudgetRepository:
+    """budgets.jsonl 파일을 관리한다. 한 줄에 한 달의 예산을 저장한다."""
+
+    def __init__(self, data_dir: str | Path = "data") -> None:
+        self.data_dir = Path(data_dir)
+        self.file_path = self.data_dir / "budgets.jsonl"
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.file_path.touch(exist_ok=True)
+
+    def load(self) -> dict[str, int]:
+        """{"2026-11": 500000} 같은 딕셔너리로 모든 예산을 읽는다."""
+
+        budgets = {}
+        with self.file_path.open("r", encoding="utf-8") as file:
+            for line in file:
+                if not line.strip():
+                    continue
+                record = json.loads(line)
+                budgets[record["month"]] = record["amount"]
+        return budgets
+
+    def set(self, month: str, amount: int) -> None:
+        """그 달의 예산을 저장한다. 이미 있으면 새 금액으로 바꾼다."""
+
+        budgets = self.load()
+        budgets[month] = amount
+
+        with self.file_path.open("w", encoding="utf-8") as file:
+            for m, a in budgets.items():
+                file.write(json.dumps({"month": m, "amount": a}) + "\n")
