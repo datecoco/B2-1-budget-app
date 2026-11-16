@@ -300,6 +300,18 @@ def main() -> int:
     if args.command == "category" and args.category_command == "remove":
         repository = CategoryRepository(args.data_dir)
 
+
+        # 거래에서 쓰고 있는 카테고리는 지우지 못하게 막는다.
+        used = sum(
+            1
+            for t in TransactionRepository(args.data_dir).iter_transactions()
+            if t.category == args.name
+        )
+        if used > 0:
+            print(f"'{args.name}' 카테고리는 거래 {used}건에서 쓰고 있어서 삭제할 수 없습니다.")
+            return 1
+
+
         if repository.remove(args.name):
             print(f"'{args.name}' 카테고리를 삭제했습니다.")
             return 0
