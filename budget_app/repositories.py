@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+
 from collections.abc import Iterator
 from dataclasses import asdict
 from pathlib import Path
@@ -58,12 +60,15 @@ class TransactionRepository:
     def save_all(self, transactions: list[Transaction]) -> None:
         """거래 목록 전체로 파일을 새로 쓴다. 수정·삭제할 때 쓴다."""
 
-        # "w"는 write의 약자다. 기존 내용을 지우고 처음부터 다시 쓴다.
-        with self.file_path.open("w", encoding="utf-8") as file:
+        # 1) 원본 대신 임시 파일(.tmp)에 먼저 다 쓴다.
+        temp_path = self.file_path.with_suffix(".tmp")
+        with temp_path.open("w", encoding="utf-8") as file:
             for transaction in transactions:
                 record = asdict(transaction)
                 file.write(json.dumps(record, ensure_ascii=False) + "\n")
 
+        # 2) 다 쓴 다음에 원본과 한 번에 바꿔치기한다.
+        os.replace(temp_path, self.file_path)
 
 
 class CategoryRepository:
