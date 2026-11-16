@@ -35,7 +35,7 @@ def create_parser() -> argparse.ArgumentParser:
 
     # 전체 프로그램의 기본 도움말을 만든다.
     parser = argparse.ArgumentParser(
-        prog="py -m budget_app",
+        prog="python3 -m budget_app",
         description="나만의 파일 기반 용돈 기입장",
     )
 
@@ -262,6 +262,11 @@ def main() -> int:
     if args.command == "list":
         transactions = list(TransactionRepository(args.data_dir).iter_transactions())
         transactions.sort(key=lambda t: t.date, reverse=True)
+
+        # 거래가 하나도 없으면 안내만 하고 끝낸다.
+        if not transactions:
+            print("아직 거래가 없습니다. add로 첫 거래를 추가해 보세요.")
+            return 0
 
         for t in transactions[: args.limit]:
             print(f"{t.id}  {t.date}  {t.type}  {t.amount:,}원  {t.category}  {t.memo}")
