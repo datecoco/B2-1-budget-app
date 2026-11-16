@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import argparse
 
-from budget_app.repositories import CategoryRepository
+import uuid
+
+from budget_app.models import Transaction
+from budget_app.repositories import CategoryRepository, TransactionRepository
 
 
 # 프로그램이 제공할 명령어와 짧은 설명이다.
@@ -80,6 +83,21 @@ def main() -> int:
     if args.command is None:
         parser.print_help()
         return 0
+
+        # py -m budget_app add를 처리한다. 필요한 값을 하나씩 물어본다.
+    if args.command == "add":
+        transaction = Transaction(
+            id=uuid.uuid4().hex[:8],
+            type=input("수입/지출 (income/expense): ").strip(),
+            date=input("날짜 (YYYY-MM-DD): ").strip(),
+            amount=int(input("금액: ").strip()),
+            category=input("카테고리: ").strip(),
+            memo=input("메모 (없으면 엔터): ").strip(),
+        )
+        TransactionRepository(args.data_dir).add(transaction)
+        print(f"저장 완료! (id: {transaction.id})")
+        return 0
+
 
     # py -m budget_app category list를 처리한다.
     if args.command == "category" and args.category_command == "list":
