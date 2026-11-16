@@ -68,6 +68,11 @@ def create_parser() -> argparse.ArgumentParser:
             if command == "delete":
                 command_parser.add_argument("id", help="삭제할 거래 id")
 
+            # summary는 요약할 달과 TOP 몇 개를 보여 줄지 받는다.
+            if command == "summary":
+                command_parser.add_argument("--month", required=True, help="요약할 달 (YYYY-MM)")
+                command_parser.add_argument("--top", type=int, default=3, help="지출 TOP N (기본값: 3)")
+
 
             # list는 몇 건을 보여 줄지 정하는 --limit 옵션을 받는다.
             if command == "list":
@@ -269,6 +274,37 @@ def main() -> int:
 
         print(f"'{args.name}' 카테고리를 찾지 못했습니다.")
         return 1
+
+    # py -m budget_app summary --month YYYY-MM을 처리한다.
+    if args.command == "summary":
+        income = 0
+        expense = 0
+        by_category = {}
+
+        for t in TransactionRepository(args.data_dir).iter_transactions():
+            # 날짜가 "2026-11"로 시작하는 거래만 센다.
+            if not t.date.startswith(args.month):
+                continue
+
+            if t.type == "income":
+                income += t.amount
+            else:
+                expense += t.amount
+                # 카테고리별 지출을 딕셔너리에 더한다.
+                by_category[t.category] = by_category.get(t.category, 0) + t.amount
+
+        print(f"[{args.month} 요약]")
+        print(f"수입: {income:,}원")
+        print(f"지출: {expense:,}원")
+        print(f"잔액: {income - expense:,}원")
+
+        # 지출이 큰 카테고리부터 정렬해서 top개만 보여 준다.
+        ranking = sorted(by_category.items(), key=lambda item: item[1], reverse=True)
+        print(f"지출 TOP {args.top}:")
+        for rank, (category, amount) in enumerate(ranking[: args.top], start=1):
+            print(f"  {rank}. {category} {amount:,}원")
+
+        return 0
 
     # 아직 구현하지 않은 명령은 안내 메시지를 보여 준다.
     print(f"[준비 중] '{args.command}' 기능은 다음 단계에서 구현합니다.")
