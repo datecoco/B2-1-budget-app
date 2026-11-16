@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 
-import uuid
 
 from budget_app.models import Transaction
 from budget_app.repositories import CategoryRepository, TransactionRepository
@@ -98,6 +97,24 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def make_id(repository: TransactionRepository, date: str) -> str:
+    """거래 날짜로 id를 만든다. 예: 2026-11-16의 첫 거래는 261116-1"""
+
+    # "2026-11-16"에서 "-"를 빼고 앞의 "20"을 잘라 "261116"으로 만든다.
+    prefix = date.replace("-", "")[2:]
+
+    # 같은 날짜 id 중 가장 큰 번호를 찾는다.
+    biggest = 0
+    for t in repository.iter_transactions():
+        if t.id.startswith(prefix + "-"):
+            number = int(t.id.split("-")[1])
+            biggest = max(biggest, number)
+
+    # 가장 큰 번호에 1을 더해 겹치지 않게 한다.
+    return f"{prefix}-{biggest + 1}"
+
+
+
 def main() -> int:
     """사용자 명령을 읽고 알맞은 기능을 실행한다."""
 
@@ -124,15 +141,23 @@ def main() -> int:
 
         # py -m budget_app add를 처리한다. 필요한 값을 하나씩 물어본다.
     if args.command == "add":
+        repository = TransactionRepository(args.data_dir)
+
+        type_ = input("수입/지출 (income/expense): ").strip()
+        date = input("날짜 (YYYY-MM-DD): ").strip()
+        amount = int(input("금액: ").strip())
+        category = input("카테고리: ").strip()
+        memo = input("메모 (없으면 엔터): ").strip()
+
         transaction = Transaction(
-            id=uuid.uuid4().hex[:8],
-            type=input("수입/지출 (income/expense): ").strip(),
-            date=input("날짜 (YYYY-MM-DD): ").strip(),
-            amount=int(input("금액: ").strip()),
-            category=input("카테고리: ").strip(),
-            memo=input("메모 (없으면 엔터): ").strip(),
+            id=make_id(repository, date),
+            type=type_,
+            date=date,
+            amount=amount,
+            category=category,
+            memo=memo,
         )
-        TransactionRepository(args.data_dir).add(transaction)
+        repository.add(transaction)
         print(f"저장 완료! (id: {transaction.id})")
         return 0
 
