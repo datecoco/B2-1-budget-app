@@ -47,12 +47,20 @@ def create_parser() -> argparse.ArgumentParser:
     # category를 제외한 일반 명령어를 등록한다.
     for command, description in COMMAND_DESCRIPTIONS.items():
         if command != "category":
-            subparsers.add_parser(
+            command_parser = subparsers.add_parser(
                 command,
                 help=description,
                 description=description,
             )
 
+            # list는 몇 건을 보여 줄지 정하는 --limit 옵션을 받는다.
+            if command == "list":
+                command_parser.add_argument(
+                    "--limit",
+                    type=int,
+                    default=10,
+                    help="보여 줄 거래 수 (기본값: 10)",
+                )
     # category는 list 같은 두 번째 명령어를 더 받는다.
     category_parser = subparsers.add_parser(
         "category",
@@ -96,6 +104,15 @@ def main() -> int:
         )
         TransactionRepository(args.data_dir).add(transaction)
         print(f"저장 완료! (id: {transaction.id})")
+        return 0
+
+    # py -m budget_app list를 처리한다. 최신 거래부터 limit개만 보여 준다.
+    if args.command == "list":
+        transactions = list(TransactionRepository(args.data_dir).iter_transactions())
+        transactions.sort(key=lambda t: t.date, reverse=True)
+
+        for t in transactions[: args.limit]:
+            print(f"{t.id}  {t.date}  {t.type}  {t.amount:,}원  {t.category}  {t.memo}")
         return 0
 
 
