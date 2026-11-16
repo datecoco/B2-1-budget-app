@@ -63,7 +63,8 @@ def create_parser() -> argparse.ArgumentParser:
                 command_parser.add_argument("--category", help="카테고리")
                 command_parser.add_argument("--type", help="income 또는 expense")
                 command_parser.add_argument("--keyword", help="메모에 들어간 글자")
-
+                command_parser.add_argument("--from", dest="date_from", help="시작 날짜 (YYYY-MM-DD)")
+                command_parser.add_argument("--to", dest="date_to", help="끝 날짜 (YYYY-MM-DD)")
 
             # update는 고칠 거래의 id를 받는다.
             if command == "update":
@@ -181,6 +182,11 @@ def main() -> int:
                 continue
             if args.keyword and args.keyword not in t.memo:
                 continue
+            if args.date_from and t.date < args.date_from:
+                continue
+            if args.date_to and t.date > args.date_to:
+                continue
+                                
             print(f"{t.id}  {t.date}  {t.type}  {t.amount:,}원  {t.category}  {t.memo}")
 
         return 0
