@@ -65,6 +65,11 @@ def create_parser() -> argparse.ArgumentParser:
                 command_parser.add_argument("id", help="수정할 거래 id")
 
 
+            # delete도 지울 거래의 id를 받는다.
+            if command == "delete":
+                command_parser.add_argument("id", help="삭제할 거래 id")
+
+
             # list는 몇 건을 보여 줄지 정하는 --limit 옵션을 받는다.
             if command == "list":
                 command_parser.add_argument(
@@ -157,6 +162,30 @@ def main() -> int:
 
         print(f"id {args.id}인 거래를 찾지 못했습니다.")
         return 1
+
+
+    # py -m budget_app delete <id>를 처리한다. 지우기 전에 한 번 더 확인한다.
+    if args.command == "delete":
+        repository = TransactionRepository(args.data_dir)
+        transactions = list(repository.iter_transactions())
+
+        # 지울 id가 아닌 거래만 남긴다.
+        remaining = [t for t in transactions if t.id != args.id]
+
+        if len(remaining) == len(transactions):
+            print(f"id {args.id}인 거래를 찾지 못했습니다.")
+            return 1
+
+        answer = input(f"id {args.id} 거래를 삭제할까요? (y/n): ").strip()
+        if answer != "y":
+            print("삭제를 취소했습니다.")
+            return 0
+
+        repository.save_all(remaining)
+        print(f"삭제 완료! (id: {args.id})")
+        return 0
+
+
 
     # py -m budget_app list를 처리한다. 최신 거래부터 limit개만 보여 준다.
     if args.command == "list":
