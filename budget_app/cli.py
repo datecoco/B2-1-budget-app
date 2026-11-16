@@ -88,11 +88,25 @@ def create_parser() -> argparse.ArgumentParser:
         metavar="action",
     )
 
-    # 현재는 category list만 구현한다.
+    # category list: 등록된 카테고리 목록을 보여 준다.
     category_subparsers.add_parser(
         "list",
         help="등록된 카테고리 목록을 출력합니다.",
     )
+
+    # category add <이름>: 새 카테고리를 추가한다.
+    category_add_parser = category_subparsers.add_parser(
+        "add",
+        help="새 카테고리를 추가합니다.",
+    )
+    category_add_parser.add_argument("name", help="추가할 카테고리 이름")
+
+    # category remove <이름>: 카테고리를 삭제한다.
+    category_remove_parser = category_subparsers.add_parser(
+        "remove",
+        help="카테고리를 삭제합니다.",
+    )
+    category_remove_parser.add_argument("name", help="삭제할 카테고리 이름")
 
     return parser
 
@@ -231,6 +245,30 @@ def main() -> int:
             print(f"- {category}")
 
         return 0
+
+    # py -m budget_app category add <이름>을 처리한다.
+    if args.command == "category" and args.category_command == "add":
+        repository = CategoryRepository(args.data_dir)
+
+        # 이미 있는 이름이면 또 넣지 않는다.
+        if args.name in repository.iter_categories():
+            print(f"'{args.name}' 카테고리는 이미 있습니다.")
+            return 1
+
+        repository.add(args.name)
+        print(f"'{args.name}' 카테고리를 추가했습니다.")
+        return 0
+
+    # py -m budget_app category remove <이름>을 처리한다.
+    if args.command == "category" and args.category_command == "remove":
+        repository = CategoryRepository(args.data_dir)
+
+        if repository.remove(args.name):
+            print(f"'{args.name}' 카테고리를 삭제했습니다.")
+            return 0
+
+        print(f"'{args.name}' 카테고리를 찾지 못했습니다.")
+        return 1
 
     # 아직 구현하지 않은 명령은 안내 메시지를 보여 준다.
     print(f"[준비 중] '{args.command}' 기능은 다음 단계에서 구현합니다.")

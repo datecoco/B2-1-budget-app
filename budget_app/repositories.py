@@ -111,3 +111,19 @@ class CategoryRepository:
                 # {"name": "food"}에서 "food"만 꺼내 반환한다.
                 record = json.loads(line)
                 yield record["name"]
+    
+
+    def remove(self, category: str) -> bool:
+        """카테고리 하나를 지운다. 지웠으면 True, 없었으면 False를 돌려준다."""
+
+        categories = list(self.iter_categories())
+        if category not in categories:
+            return False
+
+        # 지울 이름만 빼고 파일을 처음부터 다시 쓴다.
+        with self.file_path.open("w", encoding="utf-8") as file:
+            for name in categories:
+                if name != category:
+                    file.write(json.dumps({"name": name}, ensure_ascii=False) + "\n")
+
+        return True
