@@ -54,6 +54,18 @@ class TransactionRepository:
                 # 딕셔너리를 Transaction 객체로 바꾼 뒤 하나씩 반환한다.
                 yield Transaction(**record)
 
+
+    def save_all(self, transactions: list[Transaction]) -> None:
+        """거래 목록 전체로 파일을 새로 쓴다. 수정·삭제할 때 쓴다."""
+
+        # "w"는 write의 약자다. 기존 내용을 지우고 처음부터 다시 쓴다.
+        with self.file_path.open("w", encoding="utf-8") as file:
+            for transaction in transactions:
+                record = asdict(transaction)
+                file.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+
 class CategoryRepository:
     """categories.jsonl 파일을 관리한다."""
 

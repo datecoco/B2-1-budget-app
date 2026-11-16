@@ -59,6 +59,12 @@ def create_parser() -> argparse.ArgumentParser:
                 command_parser.add_argument("--type", help="income 또는 expense")
                 command_parser.add_argument("--keyword", help="메모에 들어간 글자")
 
+
+            # update는 고칠 거래의 id를 받는다.
+            if command == "update":
+                command_parser.add_argument("id", help="수정할 거래 id")
+
+
             # list는 몇 건을 보여 줄지 정하는 --limit 옵션을 받는다.
             if command == "list":
                 command_parser.add_argument(
@@ -124,6 +130,33 @@ def main() -> int:
         TransactionRepository(args.data_dir).add(transaction)
         print(f"저장 완료! (id: {transaction.id})")
         return 0
+
+    # py -m budget_app update <id>를 처리한다. 엔터만 치면 기존 값을 유지한다.
+    if args.command == "update":
+        repository = TransactionRepository(args.data_dir)
+        transactions = list(repository.iter_transactions())
+
+        for i, t in enumerate(transactions):
+            if t.id == args.id:
+                amount = input(f"금액 [{t.amount}]: ").strip()
+                category = input(f"카테고리 [{t.category}]: ").strip()
+                memo = input(f"메모 [{t.memo}]: ").strip()
+
+                transactions[i] = Transaction(
+                    id=t.id,
+                    type=t.type,
+                    date=t.date,
+                    amount=int(amount) if amount else t.amount,
+                    category=category or t.category,
+                    memo=memo or t.memo,
+                    tags=t.tags,
+                )
+                repository.save_all(transactions)
+                print(f"수정 완료! (id: {t.id})")
+                return 0
+
+        print(f"id {args.id}인 거래를 찾지 못했습니다.")
+        return 1
 
     # py -m budget_app list를 처리한다. 최신 거래부터 limit개만 보여 준다.
     if args.command == "list":
