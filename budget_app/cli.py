@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import csv
 
+from budget_app.errors import handle_errors
+
 from budget_app.models import Transaction
 from budget_app.repositories import (
     BudgetRepository,
@@ -156,6 +158,8 @@ def make_id(repository: TransactionRepository, date: str) -> str:
     return f"{prefix}-{biggest + 1}"
 
 
+
+@handle_errors
 
 def main() -> int:
     """사용자 명령을 읽고 알맞은 기능을 실행한다."""
