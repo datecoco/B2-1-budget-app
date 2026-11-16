@@ -53,6 +53,12 @@ def create_parser() -> argparse.ArgumentParser:
                 description=description,
             )
 
+            # search는 찾을 조건을 옵션으로 받는다. 안 넣은 조건은 무시한다.
+            if command == "search":
+                command_parser.add_argument("--category", help="카테고리")
+                command_parser.add_argument("--type", help="income 또는 expense")
+                command_parser.add_argument("--keyword", help="메모에 들어간 글자")
+
             # list는 몇 건을 보여 줄지 정하는 --limit 옵션을 받는다.
             if command == "list":
                 command_parser.add_argument(
@@ -90,6 +96,19 @@ def main() -> int:
     # 명령어 없이 실행하면 전체 도움말을 보여 준다.
     if args.command is None:
         parser.print_help()
+        return 0
+
+    # py -m budget_app search를 처리한다. 조건에 맞는 거래만 보여 준다.
+    if args.command == "search":
+        for t in TransactionRepository(args.data_dir).iter_transactions():
+            if args.category and t.category != args.category:
+                continue
+            if args.type and t.type != args.type:
+                continue
+            if args.keyword and args.keyword not in t.memo:
+                continue
+            print(f"{t.id}  {t.date}  {t.type}  {t.amount:,}원  {t.category}  {t.memo}")
+
         return 0
 
         # py -m budget_app add를 처리한다. 필요한 값을 하나씩 물어본다.
