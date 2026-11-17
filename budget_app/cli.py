@@ -89,8 +89,20 @@ def create_parser() -> argparse.ArgumentParser:
 
 
             # import는 가져올 CSV 파일 경로를 받는다.
+            # 기본은 "부분 성공": 잘못된 줄만 건너뛰고 나머지는 저장한다.
+            # --atomic을 주면 "전체 취소": 한 줄이라도 틀리면 아무것도 저장하지 않는다.
             if command == "import":
+                command_parser.description = (
+                    "CSV 거래 파일을 가져옵니다. "
+                    "기본은 잘못된 줄만 건너뛰는 부분 성공이고, "
+                    "--atomic을 주면 한 줄이라도 틀릴 때 전체를 취소합니다."
+                )
                 command_parser.add_argument("file", help="가져올 CSV 파일")
+                command_parser.add_argument(
+                    "--atomic",
+                    action="store_true",
+                    help="한 줄이라도 잘못되면 아무것도 저장하지 않고 전체 취소합니다.",
+                )
 
             # export는 저장할 CSV 파일 경로와 선택 조건을 받는다.
             if command == "export":
@@ -418,10 +430,12 @@ def main() -> int:
         print(f"{count}건을 {args.file}로 내보냈습니다.")
         return 0
 
-    # py -m budget_app import 파일.csv를 처리한다. 잘못된 줄은 건너뛴다.
+    # py -m budget_app import 파일.csv [--atomic]을 처리한다.
+    # 1단계: 모든 줄을 먼저 검사만 한다. (아직 파일에 쓰지 않는다)
+    # 2단계: --atomic인데 틀린 줄이 있으면 전체 취소, 아니면 올바른 줄만 저장한다.
     if args.command == "import":
         repository = TransactionRepository(args.data_dir)
-        success = 0
+        valid = []
         failures = []
 
         with open(args.file, "r", encoding="utf-8", newline="") as file:
@@ -435,8 +449,9 @@ def main() -> int:
             # 2부터 세는 이유: 1번 줄은 헤더라서.
             for line_number, row in enumerate(reader, start=2):
                 try:
+                    # id는 저장할 때 정한다. 지금은 값 검사만 하므로 빈 id를 넣어 둔다.
                     transaction = Transaction(
-                        id=make_id(repository, row["date"]),
+                        id="",
                         type=row["type"],
                         date=row["date"],
                         amount=int(row["amount"]),
@@ -447,10 +462,22 @@ def main() -> int:
                     failures.append(f"{line_number}번 줄: {error}")
                     continue
 
-                repository.add(transaction)
-                success += 1
+                valid.append(transaction)
 
-        print(f"{success}건을 가져왔습니다.")
+        # --atomic: 틀린 줄이 하나라도 있으면 파일에 아무것도 쓰지 않고 끝낸다.
+        if args.atomic and failures:
+            for failure in failures:
+                print(f"  실패 - {failure}")
+            print("--atomic 옵션이라 아무것도 가져오지 않았습니다. (0건)")
+            return 1
+
+        # 저장할 때 한 건씩 id를 만든다.
+        # 앞에서 add한 거래까지 보고 번호를 정하므로 같은 날짜 id가 겹치지 않는다.
+        for transaction in valid:
+            transaction.id = make_id(repository, transaction.date)
+            repository.add(transaction)
+
+        print(f"{len(valid)}건을 가져왔습니다.")
         for failure in failures:
             print(f"  건너뜀 - {failure}")
         return 0
