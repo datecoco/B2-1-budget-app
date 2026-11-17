@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 
+from budget_app.decorators import log_command, timed
 from budget_app.errors import handle_errors
 
 from budget_app.models import Transaction
@@ -173,9 +174,14 @@ def make_id(repository: TransactionRepository, date: str) -> str:
     return f"{prefix}-{biggest + 1}"
 
 
-
+# 데코레이터는 아래에서 위 순서로 감싼다. (main에 가까운 것이 안쪽)
+#   1. handle_errors : 가장 안쪽. 오류를 잡아 안내 문구 + 종료 코드(1/2/130)로 바꾼다.
+#   2. timed         : 오류 처리까지 포함한 전체 실행 시간을 잰다.
+#   3. log_command   : 가장 바깥. handle_errors가 정한 최종 종료 코드를 로그에 남긴다.
+# 세 데코레이터 모두 종료 코드를 바꾸지 않고 그대로 돌려준다.
+@log_command
+@timed
 @handle_errors
-
 def main() -> int:
     """사용자 명령을 읽고 알맞은 기능을 실행한다."""
 

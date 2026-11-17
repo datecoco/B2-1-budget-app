@@ -48,15 +48,18 @@ B2-1-budget-app/
 │   ├── cli.py            # 명령어 처리
 │   ├── models.py         # Transaction 데이터 모양과 검증
 │   ├── repositories.py   # 파일 저장·읽기 (거래, 카테고리, 예산)
-│   └── errors.py         # 오류 처리 데코레이터
+│   ├── errors.py         # 오류 처리 데코레이터 (handle_errors)
+│   └── decorators.py     # 로그·시간 측정 데코레이터 (log_command, timed)
 ├── tests/
 │   ├── __init__.py
-│   └── test_commands.py  # 모든 명령어를 실제로 실행해 보는 테스트
+│   ├── test_commands.py  # 모든 명령어를 실제로 실행해 보는 테스트
+│   └── test_decorators.py # 로그 파일·시간 기록·종료 코드 유지 테스트
 ├── sample.csv            # import 시연용 CSV (정상 2줄 + 틀린 2줄)
 ├── data/                 # 저장 파일 (Git에 올리지 않음)
 │   ├── transactions.jsonl
 │   ├── categories.jsonl
-│   └── budgets.jsonl
+│   ├── budgets.jsonl
+│   └── budget.log        # 명령 실행 기록 (log_command, timed가 씀)
 ├── .gitignore
 └── README.md
 ```
@@ -70,7 +73,7 @@ B2-1-budget-app/
 - **안전한 파일 교체** : 임시 파일에 먼저 쓰고 `os.replace()`로 한 번에 바꾸기
 - **제너레이터(`yield`)** : 파일을 한 줄씩 꺼내서 메모리 아끼기
 - **타입 힌트** : 값의 종류를 표시하는 이름표 (강제는 아님)
-- **데코레이터** : 함수에 오류 처리를 덧씌우기
+- **데코레이터** : 함수에 오류 처리·로그 기록·시간 측정을 덧씌우기 (본 기능과 분리)
 - **종료 코드** : 0 성공 / 1 입력 오류 / 2 파일 오류 / 130 사용자 중단
 
 ---
@@ -81,6 +84,7 @@ B2-1-budget-app/
 명령어 입력 → argparse로 해석 → cli.py에서 명령어별 처리
           → repositories.py로 파일 읽기·쓰기 → 결과 출력
           (오류가 나면 errors.py가 받아서 안내 메시지 + 종료 코드)
+          (시작·끝·걸린 시간은 decorators.py가 data/budget.log에 기록)
 ```
 
 ---
@@ -250,18 +254,56 @@ $ python3 -m budget_app --data-dir data/check2 import sample.csv --atomic
 
 ---
 
+## 🎀 데코레이터: 공통 관심사 분리
+
+"명령을 처리하는 일"과 "모든 명령에 똑같이 필요한 일(오류 처리, 기록, 시간 재기)"을 나눴습니다.
+공통 일은 데코레이터 3개로 만들어 `main()` 위에 붙였고, `main()` 본문에는 섞지 않았습니다.
+
+| 데코레이터 | 파일 | 하는 일 |
+| --- | --- | --- |
+| `handle_errors` | `errors.py` | 오류를 잡아 안내 문구를 보여 주고 종료 코드(1 / 2 / 130)로 바꿈 |
+| `log_command` | `decorators.py` | 명령 시작·끝과 **최종 종료 코드**를 `<data-dir>/budget.log`에 기록 (`logging` 모듈) |
+| `timed` | `decorators.py` | `time.perf_counter()`로 실행 시간을 재서 같은 로그에 기록. `BUDGET_DEBUG=1`이면 stderr에도 표시 |
+
+```python
+@log_command    # 3. 가장 바깥: handle_errors가 정한 최종 종료 코드를 기록
+@timed          # 2. 오류 처리까지 포함한 전체 시간을 잼
+@handle_errors  # 1. 가장 안쪽: 오류 → 안내 문구 + 종료 코드
+def main() -> int:
+```
+
+- 로그와 시간은 **화면(stdout)에 찍지 않습니다.** 그래서 위 실행 예시의 화면 출력은 그대로입니다.
+- 세 데코레이터 모두 종료 코드를 바꾸지 않고 그대로 돌려줍니다.
+- 로그 파일을 못 만들어도(권한 문제 등) 명령은 정상 실행됩니다.
+
+```bash
+# 실행 기록 보기
+cat data/budget.log
+
+# 걸린 시간을 화면에서 바로 보기 (stderr로 출력)
+BUDGET_DEBUG=1 python3 -m budget_app list
+```
+
+```
+2026-11-17 14:56:14,518 [INFO] 시작: --data-dir data/dec import 없는파일.csv
+2026-11-17 14:56:14,520 [INFO] 걸린 시간: 0.0017초
+2026-11-17 14:56:14,520 [INFO] 끝: --data-dir data/dec import 없는파일.csv (종료 코드: 2)
+```
+
+---
+
 ## 🧪 자동 테스트
 
-`tests/test_commands.py`가 임시 폴더를 `--data-dir`로 써서 add / list / search / summary / budget / category / update / delete / export / import(부분 성공, `--atomic` 취소, `--atomic` 성공) 을 **실제로 실행**하고, 종료 코드와 출력 내용을 확인합니다. 진짜 `data/` 폴더는 건드리지 않습니다.
+`tests/test_commands.py`가 임시 폴더를 `--data-dir`로 써서 add / list / search / summary / budget / category / update / delete / export / import(부분 성공, `--atomic` 취소, `--atomic` 성공) 을 **실제로 실행**하고, 종료 코드와 출력 내용을 확인합니다. `tests/test_decorators.py`는 로그 파일에 시작·끝·걸린 시간이 남는지, 화면 출력과 종료 코드가 그대로인지 확인합니다. 진짜 `data/` 폴더는 건드리지 않습니다.
 
 ```bash
 python3 -m unittest discover tests
 ```
 
 ```
-...............
+.....................
 ----------------------------------------------------------------------
-Ran 15 tests in 1.920s
+Ran 21 tests in 2.460s
 
 OK
 ```
