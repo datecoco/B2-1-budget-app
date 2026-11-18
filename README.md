@@ -292,6 +292,236 @@ BUDGET_DEBUG=1 python3 -m budget_app list
 
 ---
 
+## 🖐 수동 테스트 (직접 실행해 보기)
+
+평가할 때 명령어가 실제로 돌아가는 모습을 보여 주기 위한 순서입니다.
+저장소 폴더(`B2-1-budget-app`)에서, 아래 코드를 **한 단계씩 복사해 터미널에 붙여 넣으면** 됩니다.
+`--data-dir`는 반드시 명령어(`add`, `list` 등) **앞에** 둡니다.
+
+처음부터 다시 실행할 수 있게 **1번에서 시연용 폴더 `data/check`를 지우고 시작**합니다. 이 순서 그대로 따라가면 아래에 적힌 출력과 같습니다.
+
+`add`·`update`·`delete`는 원래 질문에 하나씩 답하는 대화형입니다.
+아래에 있는 `printf` 명령은 그 답을 한 번에 넣는 방법입니다.
+파이프 없이 `python3 -m budget_app --data-dir data/check add`만 실행한 뒤, 질문에 직접 입력해도 됩니다.
+파이프로 실행하면 입력한 답이 화면에 보이지 않아서, 질문과 결과가 한 줄에 이어져 보입니다.
+
+거래 id는 날짜로 만듭니다. `2026-11-16`의 첫 거래는 `261116-1`, 같은 날 두 번째면 `261116-2`입니다.
+`update`와 `delete`에는 `list`에 나온 id를 그대로 쓰면 됩니다. 아래 값은 이 순서를 처음부터 따라갔을 때 나오는 id입니다.
+
+1. 시연용 폴더를 비우고 시작합니다. 예전 데이터가 있으면 결과가 달라집니다. 폴더가 없어도 오류는 나지 않습니다.
+
+```bash
+rm -rf data/check
+```
+
+출력이 없으면 성공입니다.
+
+2. 아직 거래가 없는 빈 상태인지 확인합니다.
+
+```bash
+python3 -m budget_app --data-dir data/check list
+```
+
+```
+아직 거래가 없습니다. add로 첫 거래를 추가해 보세요.
+```
+
+3. 지출 한 건을 추가합니다. 질문에 답하는 순서는 수입/지출 → 날짜 → 금액 → 카테고리 → 메모 → 태그입니다.
+
+```bash
+printf 'expense\n2026-11-16\n9000\n식비\n점심\n외식\n' | python3 -m budget_app --data-dir data/check add
+```
+
+```
+수입/지출 (income/expense): 날짜 (YYYY-MM-DD): 금액: 카테고리: 메모 (없으면 엔터): 태그 (쉼표로 구분, 없으면 엔터): 저장 완료! (id: 261116-1)
+```
+
+4. 수입 한 건을 추가합니다. 태그가 없으면 해당 줄은 빈 줄(엔터)입니다.
+
+```bash
+printf 'income\n2026-11-01\n300000\n용돈\n월급\n\n' | python3 -m budget_app --data-dir data/check add
+```
+
+```
+수입/지출 (income/expense): 날짜 (YYYY-MM-DD): 금액: 카테고리: 메모 (없으면 엔터): 태그 (쉼표로 구분, 없으면 엔터): 저장 완료! (id: 261101-1)
+```
+
+5. 방금 넣은 거래를 목록으로 확인합니다. 같은 명령을 한 번 더 실행해도 결과가 같으면, 프로그램을 다시 켜도 데이터가 파일에 남아 있는 것입니다.
+
+```bash
+python3 -m budget_app --data-dir data/check list
+python3 -m budget_app --data-dir data/check list
+```
+
+```
+261116-1  2026-11-16  expense  9,000원  식비  점심  #외식
+261101-1  2026-11-01  income  300,000원  용돈  월급  
+261116-1  2026-11-16  expense  9,000원  식비  점심  #외식
+261101-1  2026-11-01  income  300,000원  용돈  월급  
+```
+
+6. 메모에 `점심`이 들어간 거래와, 태그가 `외식`인 거래를 검색합니다. (`--category`, `--type`, `--from`, `--to` 조건도 쓸 수 있습니다.)
+
+```bash
+python3 -m budget_app --data-dir data/check search --keyword 점심
+python3 -m budget_app --data-dir data/check search --tag 외식
+```
+
+```
+261116-1  2026-11-16  expense  9,000원  식비  점심  #외식
+261116-1  2026-11-16  expense  9,000원  식비  점심  #외식
+```
+
+7. `261116-1` 거래의 금액을 12,000원, 메모를 `저녁`으로 수정합니다. 카테고리는 엔터만 쳐서 기존 값을 유지합니다. 이어서 목록에서 변경 결과를 확인합니다.
+
+```bash
+printf '12000\n\n저녁\n' | python3 -m budget_app --data-dir data/check update 261116-1
+python3 -m budget_app --data-dir data/check list
+```
+
+```
+금액 [9000]: 카테고리 [식비]: 메모 [점심]: 수정 완료! (id: 261116-1)
+261116-1  2026-11-16  expense  12,000원  식비  저녁  #외식
+261101-1  2026-11-01  income  300,000원  용돈  월급  
+```
+
+8. 2026년 11월 수입·지출 요약을 봅니다.
+
+```bash
+python3 -m budget_app --data-dir data/check summary --month 2026-11
+```
+
+```
+[2026-11 요약]
+수입: 300,000원
+지출: 12,000원
+잔액: 288,000원
+지출 TOP 3:
+  1. 식비 12,000원
+```
+
+9. 같은 달 예산을 저장한 뒤, 지출과 사용률을 조회합니다.
+
+```bash
+python3 -m budget_app --data-dir data/check budget --month 2026-11 --amount 200000
+python3 -m budget_app --data-dir data/check budget --month 2026-11
+```
+
+```
+2026-11 예산을 200,000원으로 저장했습니다.
+[2026-11 예산]
+예산: 200,000원
+지출: 12,000원
+사용률: 6.0%
+```
+
+10. 카테고리 `식비`를 추가하고 목록을 봅니다. 카테고리 명령을 처음 실행하면 기본값(`food`, `transport`, `rent`, `salary`, `etc`)이 자동으로 생깁니다.
+
+```bash
+python3 -m budget_app --data-dir data/check category add 식비
+python3 -m budget_app --data-dir data/check category list
+```
+
+```
+'식비' 카테고리를 추가했습니다.
+- food
+- transport
+- rent
+- salary
+- etc
+- 식비
+```
+
+11. 2026년 11월 거래를 CSV 파일로 내보낸 뒤, 파일 내용을 확인합니다.
+
+```bash
+python3 -m budget_app --data-dir data/check export data/check/out.csv --month 2026-11
+cat data/check/out.csv
+```
+
+```
+2건을 data/check/out.csv로 내보냈습니다.
+id,date,type,amount,category,memo
+261116-1,2026-11-16,expense,12000,식비,저녁
+261101-1,2026-11-01,income,300000,용돈,월급
+```
+
+12. 시연용 `sample.csv`(정상 2줄 + 금액이 글자인 줄 + type이 틀린 줄)를 기본 방식(부분 성공)으로 가져옵니다. 올바른 줄만 저장되고, 틀린 줄은 건너뜁니다.
+
+```bash
+cat sample.csv
+python3 -m budget_app --data-dir data/check import sample.csv
+```
+
+```
+id,date,type,amount,category,memo
+,2026-11-01,expense,5000,식비,점심
+,2026-11-02,income,30000,용돈,엄마
+,2026-11-03,expense,abc,식비,금액이 글자
+,2026-11-04,bonus,1000,용돈,type이 틀림
+2건을 가져왔습니다.
+  건너뜀 - 4번 줄: invalid literal for int() with base 10: 'abc'
+  건너뜀 - 5번 줄: type은 income 또는 expense여야 합니다.
+```
+
+13. 가져온 거래가 목록에 추가되었는지 확인합니다. `2026-11-01` 지출은 이미 `261101-1`이 있어서 `261101-2`로 저장됩니다.
+
+```bash
+python3 -m budget_app --data-dir data/check list
+```
+
+```
+261116-1  2026-11-16  expense  12,000원  식비  저녁  #외식
+261102-1  2026-11-02  income  30,000원  용돈  엄마  
+261101-1  2026-11-01  income  300,000원  용돈  월급  
+261101-2  2026-11-01  expense  5,000원  식비  점심  
+```
+
+14. 같은 파일을 `--atomic`으로 가져옵니다. 틀린 줄이 있으므로 한 건도 저장하지 않고, 종료 코드가 0이 아닌 것을 `echo $?`로 바로 확인합니다.
+
+```bash
+python3 -m budget_app --data-dir data/check import sample.csv --atomic
+echo $?
+```
+
+```
+  실패 - 4번 줄: invalid literal for int() with base 10: 'abc'
+  실패 - 5번 줄: type은 income 또는 expense여야 합니다.
+--atomic 옵션이라 아무것도 가져오지 않았습니다. (0건)
+1
+```
+
+15. 13번 목록에 있던 `261102-1`(용돈/엄마)을 삭제하고, 목록에서 사라진 것을 확인합니다. id가 다르면 `list`에 나온 값을 복사해서 쓰면 됩니다.
+
+```bash
+printf 'y\n' | python3 -m budget_app --data-dir data/check delete 261102-1
+python3 -m budget_app --data-dir data/check list
+```
+
+```
+id 261102-1 거래를 삭제할까요? (y/n): 삭제 완료! (id: 261102-1)
+261116-1  2026-11-16  expense  12,000원  식비  저녁  #외식
+261101-1  2026-11-01  income  300,000원  용돈  월급  
+261101-2  2026-11-01  expense  5,000원  식비  점심  
+```
+
+16. 금액에 글자를 넣어 추가를 시도한 뒤, 종료 코드가 0이 아닌 것을 확인합니다. 이 거래는 저장되지 않습니다.
+
+```bash
+printf 'expense\n2026-11-20\nabc\n식비\n테스트\n\n' | python3 -m budget_app --data-dir data/check add
+echo $?
+```
+
+```
+수입/지출 (income/expense): 날짜 (YYYY-MM-DD): 금액: 입력 오류: invalid literal for int() with base 10: 'abc'
+힌트: 날짜는 YYYY-MM-DD, 금액은 0보다 큰 숫자로 입력하세요.
+1
+```
+
+여러 상황을 한 번에 확인하려면 아래 자동 테스트를 실행하면 됩니다.
+
+---
+
 ## 🧪 자동 테스트
 
 `tests/test_commands.py`가 임시 폴더를 `--data-dir`로 써서 add / list / search / summary / budget / category / update / delete / export / import(부분 성공, `--atomic` 취소, `--atomic` 성공) 을 **실제로 실행**하고, 종료 코드와 출력 내용을 확인합니다. `tests/test_decorators.py`는 로그 파일에 시작·끝·걸린 시간이 남는지, 화면 출력과 종료 코드가 그대로인지 확인합니다. 진짜 `data/` 폴더는 건드리지 않습니다.
