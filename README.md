@@ -462,17 +462,27 @@ echo $?
 1
 ```
 
-### I. 내보내기·스키마 (export)
+### I. 내보내기 (export)
 
-첫 줄 `id,date,type,amount,category,memo`가 스키마(`CSV_HEADER`)입니다. 헤더가 다른 파일은 거부되고 종료 코드 1입니다.
+2026년 11월 거래를 CSV 파일로 내보냅니다.
 
 ```bash
 python3 -m budget_app --data-dir data/check export data/check/out.csv --month 2026-11
-cat data/check/out.csv
 ```
 
 ```
 2건을 data/check/out.csv로 내보냈습니다.
+```
+
+### J. 스키마 (CSV 헤더)
+
+내보낸 파일의 첫 줄이 스키마(`CSV_HEADER`)인 `id,date,type,amount,category,memo`인지 확인합니다. 헤더가 다른 파일은 거부되고 종료 코드 1입니다.
+
+```bash
+cat data/check/out.csv
+```
+
+```
 id,date,type,amount,category,memo
 261116-1,2026-11-16,expense,12000,식비,저녁
 261101-1,2026-11-01,income,300000,용돈,월급
@@ -489,7 +499,7 @@ CSV 헤더가 다릅니다. 첫 줄은 id,date,type,amount,category,memo 이어�
 1
 ```
 
-### J. 가져오기 (import, --atomic)
+### K. 가져오기 (import, --atomic)
 
 `sample.csv`의 올바른 줄만 저장되고, 틀린 줄은 건너뜁니다. 같은 파일을 두 번 import하면 거래가 한 번 더 들어가므로 **한 번만** 실행하세요. `--atomic`은 틀린 줄이 있으면 한 건도 저장하지 않고 종료 코드 1입니다.
 
@@ -532,9 +542,9 @@ echo $?
 1
 ```
 
-### K. 삭제 (delete)
+### L. 삭제 (delete)
 
-J에서 가져온 `261102-1`(용돈/엄마)을 지웁니다. id가 다르면 `list`에서 복사하세요.
+K에서 가져온 `261102-1`(용돈/엄마)을 지웁니다. id가 다르면 `list`에서 복사하세요.
 
 ```bash
 printf 'y\n' | python3 -m budget_app --data-dir data/check delete 261102-1
@@ -548,7 +558,7 @@ id 261102-1 거래를 삭제할까요? (y/n): 삭제 완료! (id: 261102-1)
 261101-2  2026-11-01  expense  5,000원  식비  점심  
 ```
 
-### L. 오류 처리 (스택트레이스 없음, 종료 코드)
+### M. 오류 처리 (스택트레이스 없음, 종료 코드)
 
 `errors.py`의 `handle_errors`(9–31줄)가 오류를 잡아, `Traceback` 없이 짧은 메시지와 힌트를 보여 줍니다. 파일 오류는 2, 입력 오류는 1입니다. 입력 오류 메시지에 파이썬 기본 영어 문구가 섞일 수 있지만, 스택트레이스는 아닙니다.
 
