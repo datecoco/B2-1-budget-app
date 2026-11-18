@@ -296,9 +296,14 @@ BUDGET_DEBUG=1 python3 -m budget_app list
 
 평가할 때 명령어가 실제로 돌아가는 모습을 보여 주기 위한 순서입니다.
 저장소 폴더(`B2-1-budget-app`)에서, 아래 코드를 **한 단계씩 복사해 터미널에 붙여 넣으면** 됩니다.
-`--data-dir`는 반드시 명령어(`add`, `list` 등) **앞에** 둡니다.
 
 처음부터 다시 실행할 수 있게 **1번에서 시연용 폴더 `data/check`를 지우고 시작**합니다. 이 순서 그대로 따라가면 아래에 적힌 출력과 같습니다.
+
+> **알아 두기**
+> - `--data-dir data/check`는 연습용 데이터를 넣는 별도 폴더입니다. 안 쓰면 기본 폴더 `data/`에 저장됩니다. 이 옵션은 반드시 명령어(`add`, `list` 등) **앞에** 둡니다.
+> - 명령은 항상 저장소 폴더(`B2-1-budget-app`)에서 실행하세요. `data/check` 안으로 들어갔다면 `cd ../..`로 나오고, `pwd`로 경로 끝이 `B2-1-budget-app`인지 확인하면 됩니다. `cat`에 쓰는 경로(`data/check/out.csv`, `sample.csv`)도 이 폴더 기준입니다.
+> - `echo $?`는 바로 전 명령의 종료 코드를 보여 줍니다. 0이면 성공, 0이 아니면 오류입니다. 오류가 난 명령 **바로 다음**에 쳐야 합니다.
+> - `|`(파이프)는 왼쪽(`printf`)이 만든 답을 오른쪽 명령이 키보드 입력처럼 받게 합니다. 맥에서는 영어 입력으로 바꾼 뒤 `Shift`와 `\`(엔터 바로 위, 한국어 키보드에서는 `₩`로 보이기도 함)를 누르면 `|`가 됩니다. 치기 어려우면 아래 줄을 통째로 복사하세요.
 
 `add`·`update`·`delete`는 원래 질문에 하나씩 답하는 대화형입니다.
 아래에 있는 `printf` 명령은 그 답을 한 번에 넣는 방법입니다.
@@ -400,14 +405,18 @@ python3 -m budget_app --data-dir data/check summary --month 2026-11
   1. 식비 12,000원
 ```
 
-9. 같은 달 예산을 저장한 뒤, 지출과 사용률을 조회합니다.
+9. 예산을 조회하고, 없으면 저장한 뒤 다시 조회합니다. `--amount` 없이 달만 주면 조회이고, `--amount`를 붙이면 저장입니다. 아직 예산이 없으면 안내 문구와 함께 종료 코드 1이 나옵니다.
 
 ```bash
+python3 -m budget_app --data-dir data/check budget --month 2026-11
+echo $?
 python3 -m budget_app --data-dir data/check budget --month 2026-11 --amount 200000
 python3 -m budget_app --data-dir data/check budget --month 2026-11
 ```
 
 ```
+2026-11 예산이 없습니다. --amount로 먼저 저장하세요.
+1
 2026-11 예산을 200,000원으로 저장했습니다.
 [2026-11 예산]
 예산: 200,000원
@@ -415,15 +424,33 @@ python3 -m budget_app --data-dir data/check budget --month 2026-11
 사용률: 6.0%
 ```
 
-10. 카테고리 `식비`를 추가하고 목록을 봅니다. 카테고리 명령을 처음 실행하면 기본값(`food`, `transport`, `rent`, `salary`, `etc`)이 자동으로 생깁니다.
+10. 카테고리 목록을 보고, `간식`을 추가했다가 삭제한 뒤, 거래에서 쓰는 `식비`도 등록합니다. 카테고리 명령을 처음 실행하면 기본값(`food`, `transport`, `rent`, `salary`, `etc`)이 자동으로 생깁니다. 삭제 명령어는 `delete`가 아니라 `remove`입니다.
 
 ```bash
+python3 -m budget_app --data-dir data/check category list
+python3 -m budget_app --data-dir data/check category add 간식
 python3 -m budget_app --data-dir data/check category add 식비
+python3 -m budget_app --data-dir data/check category list
+python3 -m budget_app --data-dir data/check category remove 간식
 python3 -m budget_app --data-dir data/check category list
 ```
 
 ```
+- food
+- transport
+- rent
+- salary
+- etc
+'간식' 카테고리를 추가했습니다.
 '식비' 카테고리를 추가했습니다.
+- food
+- transport
+- rent
+- salary
+- etc
+- 간식
+- 식비
+'간식' 카테고리를 삭제했습니다.
 - food
 - transport
 - rent
@@ -432,7 +459,7 @@ python3 -m budget_app --data-dir data/check category list
 - 식비
 ```
 
-11. 2026년 11월 거래를 CSV 파일로 내보낸 뒤, 파일 내용을 확인합니다.
+11. 2026년 11월 거래를 CSV 파일로 내보낸 뒤, 파일 내용을 확인합니다. 첫 줄 `id,date,type,amount,category,memo`가 스키마(`CSV_HEADER`)입니다.
 
 ```bash
 python3 -m budget_app --data-dir data/check export data/check/out.csv --month 2026-11
@@ -446,7 +473,20 @@ id,date,type,amount,category,memo
 261101-1,2026-11-01,income,300000,용돈,월급
 ```
 
-12. 시연용 `sample.csv`(정상 2줄 + 금액이 글자인 줄 + type이 틀린 줄)를 기본 방식(부분 성공)으로 가져옵니다. 올바른 줄만 저장되고, 틀린 줄은 건너뜁니다.
+12. 헤더가 다른 CSV는 import가 거부하는지 확인합니다. 첫 줄이 스키마와 다르면 한 줄도 가져오지 않고 종료 코드 1이 됩니다.
+
+```bash
+printf 'date,amount,memo\n2026-11-05,1000,x\n' > data/check/bad.csv
+python3 -m budget_app --data-dir data/check import data/check/bad.csv
+echo $?
+```
+
+```
+CSV 헤더가 다릅니다. 첫 줄은 id,date,type,amount,category,memo 이어야 합니다.
+1
+```
+
+13. 시연용 `sample.csv`(정상 2줄 + 금액이 글자인 줄 + type이 틀린 줄)를 기본 방식(부분 성공)으로 가져옵니다. 올바른 줄만 저장되고, 틀린 줄은 건너뜁니다. 같은 파일을 두 번 import하면 거래가 한 번 더 추가됩니다. 중복을 걸러 주는 기능은 없으므로, 아래 명령은 한 번만 실행하세요.
 
 ```bash
 cat sample.csv
@@ -464,7 +504,7 @@ id,date,type,amount,category,memo
   건너뜀 - 5번 줄: type은 income 또는 expense여야 합니다.
 ```
 
-13. 가져온 거래가 목록에 추가되었는지 확인합니다. `2026-11-01` 지출은 이미 `261101-1`이 있어서 `261101-2`로 저장됩니다.
+14. 가져온 거래가 목록에 추가되었는지 확인합니다. `2026-11-01` 지출은 이미 `261101-1`이 있어서 `261101-2`로 저장됩니다.
 
 ```bash
 python3 -m budget_app --data-dir data/check list
@@ -477,7 +517,7 @@ python3 -m budget_app --data-dir data/check list
 261101-2  2026-11-01  expense  5,000원  식비  점심  
 ```
 
-14. 같은 파일을 `--atomic`으로 가져옵니다. 틀린 줄이 있으므로 한 건도 저장하지 않고, 종료 코드가 0이 아닌 것을 `echo $?`로 바로 확인합니다.
+15. 같은 파일을 `--atomic`으로 가져옵니다. 틀린 줄이 있으므로 한 건도 저장하지 않고, 종료 코드가 0이 아닌 것을 `echo $?`로 바로 확인합니다.
 
 ```bash
 python3 -m budget_app --data-dir data/check import sample.csv --atomic
@@ -491,7 +531,19 @@ echo $?
 1
 ```
 
-15. 13번 목록에 있던 `261102-1`(용돈/엄마)을 삭제하고, 목록에서 사라진 것을 확인합니다. id가 다르면 `list`에 나온 값을 복사해서 쓰면 됩니다.
+16. 거래에서 쓰고 있는 카테고리 `식비`를 삭제해 봅니다. 지금은 식비 거래가 2건(저녁, 점심)이라 지울 수 없고, 종료 코드 1이 나옵니다.
+
+```bash
+python3 -m budget_app --data-dir data/check category remove 식비
+echo $?
+```
+
+```
+'식비' 카테고리는 거래 2건에서 쓰고 있어서 삭제할 수 없습니다.
+1
+```
+
+17. 14번 목록에 있던 `261102-1`(용돈/엄마)을 삭제하고, 목록에서 사라진 것을 확인합니다. id가 다르면 `list`에 나온 값을 복사해서 쓰면 됩니다.
 
 ```bash
 printf 'y\n' | python3 -m budget_app --data-dir data/check delete 261102-1
@@ -505,7 +557,20 @@ id 261102-1 거래를 삭제할까요? (y/n): 삭제 완료! (id: 261102-1)
 261101-2  2026-11-01  expense  5,000원  식비  점심  
 ```
 
-16. 금액에 글자를 넣어 추가를 시도한 뒤, 종료 코드가 0이 아닌 것을 확인합니다. 이 거래는 저장되지 않습니다.
+18. 없는 파일을 import해서, 스택트레이스 없이 짧은 오류 메시지와 힌트만 나오는지 확인합니다. `errors.py`의 `handle_errors` 데코레이터(9–31줄)가 오류를 잡아 안내 문구를 보여 주고 종료 코드를 돌려줍니다. 파일 오류는 2, 입력 오류는 1입니다.
+
+```bash
+python3 -m budget_app --data-dir data/check import nofile.csv
+echo $?
+```
+
+```
+파일 오류: 'nofile.csv' 파일을 찾을 수 없습니다.
+힌트: 파일 경로와 이름을 다시 확인하세요.
+2
+```
+
+19. 금액에 글자를 넣어 추가를 시도한 뒤, 종료 코드가 0이 아닌 것을 확인합니다. 이 거래는 저장되지 않습니다. 메시지 안에 `invalid literal for int()...` 같은 파이썬 기본 문구가 섞여 나오지만, `Traceback`으로 시작하는 긴 에러 화면은 아닙니다.
 
 ```bash
 printf 'expense\n2026-11-20\nabc\n식비\n테스트\n\n' | python3 -m budget_app --data-dir data/check add
